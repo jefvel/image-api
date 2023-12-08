@@ -26,7 +26,7 @@ func main() {
 
 	loggedRouter := handlers.LoggingHandler(os.Stdout, r)
 
-	err := http.ListenAndServe(":8080", loggedRouter)
+	err := http.ListenAndServe(":8000", loggedRouter)
 
 	if err != nil {
 		log.Fatalln(err)
