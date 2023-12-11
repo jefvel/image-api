@@ -14,12 +14,12 @@ func main() {
 
 	r := mux.NewRouter()
 
-	apiv1 := r.PathPrefix("v1").Subrouter()
+	apiv1 := r.PathPrefix("/v1").Subrouter()
 
-	apiv1.HandleFunc("/images", handler.ListImages).Methods("GET")
-	apiv1.HandleFunc("/images/{id}", handler.GetImage).Methods("GET")
+	apiv1.HandleFunc("/images", handler.ListImageMetadata).Methods("GET")
+	apiv1.HandleFunc("/images/{id}", handler.GetImageMetadata).Methods("GET")
 
-	apiv1.HandleFunc("/images/{id}/data", handler.GetImageData).Methods("GET")
+	apiv1.HandleFunc("/images/{id}/data", handler.GetImage).Methods("GET")
 
 	apiv1.HandleFunc("/images", handler.UploadImage).Methods("POST")
 	apiv1.HandleFunc("/images/{id}", handler.UpdateImage).Methods("PUT")

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"image-api/pkg/repository"
 	"net/http"
 	"strconv"
@@ -13,23 +12,19 @@ import (
 func ListImageMetadata(r http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	data, err := repository.ListImageMetadata(ctx)
-	if err != nil {
-		http.Error(r, err.Error(), http.StatusInternalServerError)
+	if checkError(err, r) {
 		return
 	}
 
 	res, err := json.Marshal(data)
-	if err != nil {
-		http.Error(r, err.Error(), http.StatusInternalServerError)
+	if checkError(err, r) {
 		return
 	}
 
 	r.Header().Set("Content-Type", "application/json")
 
 	_, err = r.Write(res)
-	if err != nil {
-		http.Error(r, err.Error(), http.StatusInternalServerError)
-	}
+	checkError(err, r)
 }
 
 func GetImageMetadata(r http.ResponseWriter, req *http.Request) {
@@ -43,25 +38,17 @@ func GetImageMetadata(r http.ResponseWriter, req *http.Request) {
 	}
 
 	data, err := repository.GetImageMetadata(ctx, id)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			http.Error(r, err.Error(), http.StatusNotFound)
-		} else {
-			http.Error(r, err.Error(), http.StatusInternalServerError)
-		}
+	if checkError(err, r) {
 		return
 	}
 
 	res, err := json.Marshal(data)
-	if err != nil {
-		http.Error(r, err.Error(), http.StatusInternalServerError)
+	if checkError(err, r) {
 		return
 	}
 
 	r.Header().Set("Content-Type", "application/json")
-
 	_, err = r.Write(res)
-	if err != nil {
-		http.Error(r, err.Error(), http.StatusInternalServerError)
-	}
+
+	checkError(err, r)
 }
