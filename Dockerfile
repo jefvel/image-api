@@ -1,4 +1,4 @@
-FROM golang:1.18
+FROM golang:1.21
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY pkg/ ./pkg/
 
 COPY .env .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /image-api ./cmd/image-api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /image-api ./cmd/main.go
 
 EXPOSE 8000
 
