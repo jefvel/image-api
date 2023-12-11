@@ -13,9 +13,9 @@ import (
 )
 
 type ImageDetails struct {
-	ID       int      `json:"id"`
-	Metadata Metadata `json:"metadata"`
-	Data     *ImageData
+	ID       int        `json:"id"`
+	Metadata Metadata   `json:"metadata"`
+	Data     *ImageData `json:"-"`
 }
 
 type Metadata struct {
