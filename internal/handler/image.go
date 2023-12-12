@@ -3,13 +3,13 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"image"
-	"image-api/pkg/repository"
-	"image-api/pkg/util"
+	"image-api/internal/model"
+	"image-api/internal/repository"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -20,24 +20,24 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	metadata, base64Data, err := extractImageData(r)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	result, err := repository.SaveImage(ctx, *metadata, base64Data)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	res, err := json.Marshal(result)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	_, err = w.Write(res)
-	checkError(err, w)
+	errorCheck(err, w)
 }
 
 func UpdateImage(w http.ResponseWriter, r *http.Request) {
@@ -53,24 +53,24 @@ func UpdateImage(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	metadata, base64Data, err := extractImageData(r)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	result, err := repository.UpdateImage(ctx, id, *metadata, base64Data)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	res, err := json.Marshal(result)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	_, err = w.Write(res)
-	checkError(err, w)
+	errorCheck(err, w)
 }
 
 func GetImage(w http.ResponseWriter, r *http.Request) {
@@ -82,12 +82,14 @@ func GetImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	decodeResponse := r.URL.Query().Has("decode")
+	query := r.URL.Query()
 
-	bboxStr := r.URL.Query().Get("bbox")
+	decodeResponse := query.Has("decode")
+
 	var bbox *image.Rectangle
-	if len(bboxStr) > 0 {
-		bbox, err = util.ParseBBoxString(bboxStr)
+	if query.Has("bbox") {
+		bboxStr := query.Get("bbox")
+		bbox, err = model.ParseBBoxString(bboxStr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -95,37 +97,39 @@ func GetImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	details, err := repository.GetImageAndMetadata(ctx, id)
-	if checkError(err, w) {
+	if errorCheck(err, w) {
 		return
 	}
 
 	responseData := []byte(*details.Data)
 	if bbox != nil {
 		imageData, err := base64.StdEncoding.DecodeString(string(*details.Data))
-		if checkError(err, w) {
+		if errorCheck(err, w) {
 			return
 		}
 
-		imgData, err := util.CropImage(imageData, *bbox)
-		if checkError(err, w) {
+		img, err := model.ImageFromBytes(imageData)
+		croppedImg, err := img.Crop(*bbox)
+		if errorCheck(err, w) {
 			return
 		}
 
-		responseData = []byte(base64.StdEncoding.EncodeToString(imgData))
+		responseData = []byte(base64.StdEncoding.EncodeToString(croppedImg.Bytes))
 	}
 
 	if decodeResponse {
 		decoded, err := base64.StdEncoding.DecodeString(string(responseData))
-		if checkError(err, w) {
+		if errorCheck(err, w) {
 			return
 		}
+
 		w.Header().Set("Content-Type", "image/"+details.Metadata.Format)
 		responseData = decoded
 	}
 
 	_, err = w.Write(responseData)
 
-	checkError(err, w)
+	errorCheck(err, w)
 }
 
 func extractImageData(r *http.Request) (*repository.Metadata, repository.ImageData, error) {
@@ -139,28 +143,18 @@ func extractImageData(r *http.Request) (*repository.Metadata, repository.ImageDa
 		return nil, "", err
 	}
 
-	metadata, err := util.ExtractImageMetadata(imageData)
+	img, err := model.ImageFromBytes(imageData)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return metadata, repository.ImageData(base64Data), nil
-}
-
-func checkError(err error, w http.ResponseWriter) bool {
-	if err == nil {
-		return false
+	metadata := repository.Metadata{
+		Width:     img.Width,
+		Height:    img.Height,
+		Size:      img.Size,
+		Format:    img.Format,
+		CreatedAt: time.Now(),
 	}
 
-	errCode := http.StatusInternalServerError
-
-	if errors.Is(err, repository.ErrNotFound) {
-		errCode = http.StatusNotFound
-	} else if errors.Is(err, util.ErrInvalidFileFormat) {
-		errCode = http.StatusBadRequest
-	}
-
-	http.Error(w, err.Error(), errCode)
-
-	return true
+	return &metadata, repository.ImageData(base64Data), nil
 }

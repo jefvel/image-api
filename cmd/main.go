@@ -1,7 +1,7 @@
 package main
 
 import (
-	"image-api/pkg/handler"
+	"image-api/internal/handler"
 	"log"
 	"net/http"
 	"os"

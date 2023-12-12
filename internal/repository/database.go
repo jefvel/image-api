@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"image-api/pkg/config"
+	"image-api/internal/config"
 	"log"
 	"time"
 
@@ -91,26 +91,11 @@ func ListImageMetadata(ctx context.Context) ([]ImageDetails, error) {
 	return result, nil
 }
 
-func GetImageMetadata(ctx context.Context, ID int) (*ImageDetails, error) {
-	row := DB.QueryRowContext(ctx, `SELECT id, size, width, height, format, created_at FROM images WHERE id = $1`, ID)
-	d := &ImageDetails{}
-	m := &d.Metadata
-
-	err := row.Scan(&d.ID, &m.Size, &m.Width, &m.Height, &m.Format, &m.CreatedAt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-
-	return d, nil
-}
-
 func GetImageAndMetadata(ctx context.Context, ID int) (*ImageDetails, error) {
-	row := DB.QueryRowContext(ctx, `SELECT id, size, width, height, format, created_at, data FROM images WHERE id = $1`, ID)
 	d := &ImageDetails{}
 	m := &d.Metadata
+
+	row := DB.QueryRowContext(ctx, `SELECT id, size, width, height, format, created_at, data FROM images WHERE id = $1`, ID)
 
 	err := row.Scan(&d.ID, &m.Size, &m.Width, &m.Height, &m.Format, &m.CreatedAt, &d.Data)
 	if err != nil {

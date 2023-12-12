@@ -1,22 +1,30 @@
-package util
+package model
 
 import (
 	"bytes"
 	"errors"
 	"image"
-	"image-api/pkg/repository"
 	"image/draw"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
-	"time"
 )
 
 var (
 	ErrInvalidFileFormat = errors.New("Invalid file format")
 )
 
-func ExtractImageMetadata(imageData []byte) (*repository.Metadata, error) {
+type Image struct {
+	Width  int
+	Height int
+	Size   int
+	Format string
+	Bytes  []byte
+
+	img image.Image
+}
+
+func ImageFromBytes(imageData []byte) (*Image, error) {
 	img, format, err := image.Decode(bytes.NewReader(imageData))
 	if err != nil {
 		if errors.Is(err, image.ErrFormat) {
@@ -29,34 +37,26 @@ func ExtractImageMetadata(imageData []byte) (*repository.Metadata, error) {
 
 	sizeInKb := len(imageData) / (1_024)
 
-	metadata := &repository.Metadata{
-		Width:     bounds.Dx(),
-		Height:    bounds.Dy(),
-		Size:      sizeInKb,
-		Format:    format,
-		CreatedAt: time.Now(),
+	metadata := &Image{
+		Width:  bounds.Dx(),
+		Height: bounds.Dy(),
+		Size:   sizeInKb,
+		Format: format,
+		Bytes:  imageData,
+		img:    img,
 	}
 
 	return metadata, nil
 }
 
-func CropImage(imageData []byte, rect image.Rectangle) ([]byte, error) {
-	img, format, err := image.Decode(bytes.NewReader(imageData))
-	if err != nil {
-		if errors.Is(err, image.ErrFormat) {
-			return nil, ErrInvalidFileFormat
-		}
-
-		return nil, err
-	}
-
-	newImg := image.NewRGBA(img.Bounds())
-	draw.Draw(newImg, newImg.Bounds(), img, image.Point{}, draw.Over)
+func (i *Image) Crop(rect image.Rectangle) (*Image, error) {
+	newImg := image.NewRGBA(i.img.Bounds())
+	draw.Draw(newImg, newImg.Bounds(), i.img, image.Point{}, draw.Over)
 
 	croppedImage := newImg.SubImage(rect)
 
 	buf := new(bytes.Buffer)
-	switch format {
+	switch i.Format {
 	case "jpeg":
 		jpeg.Encode(buf, croppedImage, nil)
 	case "gif":
@@ -67,5 +67,5 @@ func CropImage(imageData []byte, rect image.Rectangle) ([]byte, error) {
 		return nil, ErrInvalidFileFormat
 	}
 
-	return buf.Bytes(), nil
+	return ImageFromBytes(buf.Bytes())
 }
