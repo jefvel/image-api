@@ -88,6 +88,11 @@ func ListImageMetadata(ctx context.Context) ([]ImageDetails, error) {
 		result = append(result, d)
 	}
 
+	err := rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }
 
@@ -114,6 +119,8 @@ func SaveImage(ctx context.Context, m Metadata, data ImageData) (*ImageDetails, 
 		return nil, err
 	}
 
+	defer stmt.Close()
+
 	row := stmt.QueryRowContext(ctx, m.Size, m.Width, m.Height, m.Format, data)
 
 	var id int
@@ -138,6 +145,8 @@ func UpdateImage(ctx context.Context, id int, m Metadata, data ImageData) (*Imag
 	if err != nil {
 		return nil, err
 	}
+
+	defer stmt.Close()
 
 	res, err := stmt.ExecContext(ctx, m.Size, m.Width, m.Height, m.Format, data, id)
 	if err != nil {
