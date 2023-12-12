@@ -154,6 +154,10 @@ func UpdateImage(ctx context.Context, id int, m Metadata, data ImageData) (*Imag
 	}
 
 	updatedRows, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+
 	if updatedRows == 0 {
 		return nil, ErrNotFound
 	}
