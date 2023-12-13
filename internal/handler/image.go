@@ -8,10 +8,7 @@ import (
 	"image-api/internal/repository"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
 func UploadImage(w http.ResponseWriter, r *http.Request) {
@@ -43,10 +40,8 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 func UpdateImage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	params := mux.Vars(r)
-	id, err := strconv.Atoi(params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	id, err := getIdFromRequest(r)
+	if errorCheck(err, w) {
 		return
 	}
 
@@ -62,33 +57,23 @@ func UpdateImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	res, err := json.Marshal(result)
-	if errorCheck(err, w) {
-		return
-	}
-
-	_, err = w.Write(res)
+	err = writeAsJsonResponse(result, w)
 	errorCheck(err, w)
 }
 
 func GetImage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	params := mux.Vars(r)
-	id, err := strconv.Atoi(params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+
+	id, err := getIdFromRequest(r)
+	if errorCheck(err, w) {
 		return
 	}
 
 	query := r.URL.Query()
-
 	decodeResponse := query.Has("decode")
 
 	var bbox *image.Rectangle
-	if query.Has("bbox") {
-		bboxStr := query.Get("bbox")
+	if bboxStr := query.Get("bbox"); bboxStr != "" {
 		bbox, err = model.ParseBBoxString(bboxStr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -101,17 +86,32 @@ func GetImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	responseData, err := prepareImageResponseData(details, bbox, decodeResponse)
+	if errorCheck(err, w) {
+		return
+	}
+
+	if decodeResponse {
+		w.Header().Set("Content-Type", "image/"+details.Metadata.Format)
+	}
+
+	_, err = w.Write(responseData)
+	errorCheck(err, w)
+}
+
+func prepareImageResponseData(details *repository.ImageDetails, bbox *image.Rectangle, decodeResponse bool) ([]byte, error) {
 	responseData := []byte(*details.Data)
+
 	if bbox != nil {
 		imageData, err := base64.StdEncoding.DecodeString(string(*details.Data))
-		if errorCheck(err, w) {
-			return
+		if err != nil {
+			return nil, err
 		}
 
 		img, err := model.ImageFromBytes(imageData)
 		croppedImg, err := img.Crop(*bbox)
-		if errorCheck(err, w) {
-			return
+		if err != nil {
+			return nil, err
 		}
 
 		responseData = []byte(base64.StdEncoding.EncodeToString(croppedImg.Bytes))
@@ -119,17 +119,14 @@ func GetImage(w http.ResponseWriter, r *http.Request) {
 
 	if decodeResponse {
 		decoded, err := base64.StdEncoding.DecodeString(string(responseData))
-		if errorCheck(err, w) {
-			return
+		if err != nil {
+			return nil, err
 		}
 
-		w.Header().Set("Content-Type", "image/"+details.Metadata.Format)
 		responseData = decoded
 	}
 
-	_, err = w.Write(responseData)
-
-	errorCheck(err, w)
+	return responseData, nil
 }
 
 func extractImageData(r *http.Request) (*repository.Metadata, repository.ImageData, error) {

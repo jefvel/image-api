@@ -10,3 +10,4 @@ To run without docker, point `.env` to the db, and run `make run`.
 - Add tests
 - Proper db migration (currently just creates a table when launching the API)
 - Ability to configure the API endpoint address/port
+- Not read the whole request body in with `io.ReadAll` when getting the image
